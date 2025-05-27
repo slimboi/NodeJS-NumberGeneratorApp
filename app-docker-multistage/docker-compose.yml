@@ -1,0 +1,41 @@
+services:
+  mongo:
+    image: mongo
+    container_name: mongo
+    networks:
+      - mongo-net
+    volumes:
+      - mongodb:/data/db
+    restart: always
+
+  mongo-express:
+    image: mongo-express
+    container_name: mongo-express
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+    depends_on:
+      - mongo
+    networks:
+      - mongo-net
+    restart: always
+
+  numgen:
+    build: .
+    image: node-numgen:v1
+    container_name: numgen
+    ports:
+      - "3000:3000"
+    networks:
+      - mongo-net
+    depends_on:
+      - mongo
+    restart: always
+
+volumes:
+  mongodb:
+
+networks:
+  mongo-net:
+    driver: bridge

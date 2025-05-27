@@ -18,7 +18,7 @@ FROM node:22-alpine
 WORKDIR /usr/src/app
 
 # Copy only the necessary files from the build stage
-COPY --from=build /usr/src/app /usr/src/app
+COPY --from=build /usr/src/app .
 
 # Expose the application's port
 EXPOSE 3000
