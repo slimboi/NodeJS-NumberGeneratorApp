@@ -15,22 +15,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: ⬇️ Checkout Code
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: 🟢 Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: 📦 Install Dependencies
+      - name: Install Dependencies
         run: npm install
         working-directory: app-docker-multistage
 
-      - name: 🧹 Run ESLint
+      - name: Run ESLint
         run: npm run lint
         working-directory: app-docker-multistage
 
-      - name: 🧪 Run Tests
+      - name: Run Tests
         run: npm test
         working-directory: app-docker-multistage
