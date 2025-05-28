@@ -25,14 +25,12 @@ jobs:
 
       - name: 📦 Install Dependencies
         run: npm ci
+        working-directory: app-docker-multistage
 
       - name: 🧹 Run ESLint
-        run: |
-          if [ -f eslint.config.mjs ]; then
-            node --import=eslint/config-eslint.cjs node_modules/eslint/bin/eslint.js .
-          else
-            echo "❌ ESLint config not found. Skipping linting."
-          fi
+        run: npm run lint
+        working-directory: app-docker-multistage
 
       - name: 🧪 Run Tests
         run: npm test
+        working-directory: app-docker-multistage
