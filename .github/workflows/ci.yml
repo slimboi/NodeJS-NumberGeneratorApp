@@ -34,3 +34,7 @@ jobs:
       - name: Run Tests
         run: npm test
         working-directory: app-docker-multistage
+     
+      - name: Build Docker Image with SHA Tag
+        run: docker build -t nomcombo-app:${{ github.sha }} .
+        working-directory: app-docker-multistage
