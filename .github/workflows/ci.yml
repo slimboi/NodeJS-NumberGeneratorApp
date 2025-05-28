@@ -36,5 +36,7 @@ jobs:
         working-directory: app-docker-multistage
      
       - name: Build Docker Image with SHA Tag
-        run: docker build -t nomcombo-app:${{ github.sha }} .
+        run: |
+          SHORT_SHA=${GITHUB_SHA::7}
+          docker build -t nomcombo-app:$SHORT_SHA .
         working-directory: app-docker-multistage
