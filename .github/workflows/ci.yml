@@ -5,14 +5,14 @@ on:
     branches:
       - main
       - 'feature/**'
-    paths:
-      - 'README.md'
+    paths-ignore:
+      # - 'README.md'
       - '*.md'
   pull_request:
     branches:
       - main
       - 'feature/**'
-    paths:
+    paths-ignore:
       - 'README.md'
       - '*.md'
 
