@@ -1,0 +1,205 @@
+# namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: numgen-app
+
+---
+
+# mongo-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+  namespace: numgen-app
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+
+# mongodb-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo
+  namespace: numgen-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:8.0.10
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            exec:
+              command:
+              - mongosh
+              - --eval
+              - "db.adminCommand('ping')"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+              - mongosh
+              - --eval
+              - "db.adminCommand('ping')"
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+      volumes:
+        - name: mongo-data
+          persistentVolumeClaim:
+            claimName: mongodb-pvc
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  namespace: numgen-app
+spec:
+  selector:
+    app: mongo
+  ports:
+    - port: 27017
+      targetPort: 27017
+
+---
+
+# mongo-express-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-express
+  namespace: numgen-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo-express
+  template:
+    metadata:
+      labels:
+        app: mongo-express
+    spec:
+      containers:
+        - name: mongo-express
+          image: mongo-express:1-20-alpine3.19
+          ports:
+            - containerPort: 8081
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          env:
+            - name: ME_CONFIG_MONGODB_SERVER
+              value: mongo
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-express
+  namespace: numgen-app
+spec:
+  selector:
+    app: mongo-express
+  ports:
+    - port: 8081
+      targetPort: 8081
+  type: NodePort
+
+---
+
+# numgen-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: numgen
+  namespace: numgen-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: numgen
+  template:
+    metadata:
+      labels:
+        app: numgen
+    spec:
+      containers:
+        - name: numgen
+          image: 475325513391.dkr.ecr.ap-southeast-2.amazonaws.com/nomcombo-app:ec32efb
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+      imagePullSecrets:
+        - name: ecr-secret
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: numgen
+  namespace: numgen-app
+spec:
+  selector:
+    app: numgen
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: NodePort
