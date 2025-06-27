@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: numgen
+  namespace: {{ .Values.global.namespace }}
+spec:
+  replicas: {{ .Values.numgen.replicas }}
+  selector:
+    matchLabels:
+      app: numgen
+  template:
+    metadata:
+      labels:
+        app: numgen
+    spec:
+      containers:
+      - name: numgen
+        image: {{ .Values.numgen.image.repository }}:{{ .Values.numgen.image.tag }}
+        imagePullPolicy: {{ .Values.numgen.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.numgen.service.targetPort }}
+        resources:
+          {{- toYaml .Values.numgen.resources | nindent 10 }}
+        readinessProbe:
+          httpGet:
+            path: /
+            port: {{ .Values.numgen.service.targetPort }}
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: {{ .Values.numgen.service.targetPort }}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      {{- if .Values.numgen.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.numgen.imagePullSecrets | nindent 8 }}
+      {{- end }}
