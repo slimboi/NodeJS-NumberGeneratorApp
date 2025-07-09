@@ -120,7 +120,7 @@ aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS
 git clone https://github.com/slimboi/NodeJS-NumberGeneratorApp.git
 cd NodeJS-NumberGeneratorApp
 git checkout feature/helm-refactor
-cd helm-numgen-app/
+cd helm-numgen-app-refactor/
 
 # Validate chart
 helm lint .
