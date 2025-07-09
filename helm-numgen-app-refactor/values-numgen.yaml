@@ -1,0 +1,72 @@
+# ===== values-numgen.yaml =====
+# Application metadata
+app:
+  name: numgen
+  namespace: numgen-app
+  labels:
+    app: numgen
+    component: frontend
+
+# Image configuration
+image:
+  repository: 475325513391.dkr.ecr.ap-southeast-2.amazonaws.com/nomcombo-app
+  tag: "ec32efb"
+  pullPolicy: IfNotPresent
+
+# Deployment configuration
+deployment:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+
+# Container configuration
+container:
+  name: numgen
+  port: 3000
+  env: []
+
+# Service configuration
+service:
+  enabled: true
+  type: NodePort
+  port: 3000
+  targetPort: 3000
+
+# Resource limits
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "200m"
+
+# Health checks
+probes:
+  readiness:
+    enabled: true
+    type: httpGet
+    path: /
+    port: 3000
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  liveness:
+    enabled: true
+    type: httpGet
+    path: /
+    port: 3000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Security configuration
+security:
+  imagePullSecrets:
+    - name: ecr-secret
+
+# Persistence (disabled for NumGen)
+persistence:
+  enabled: false
