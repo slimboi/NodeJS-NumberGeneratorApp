@@ -1,0 +1,13 @@
+# ===== Updated Chart.yaml =====
+apiVersion: v2
+name: numgen-chart
+description: A flexible Helm chart for deploying NumGen applications
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: mongodb
+    version: "15.6.13"  # Check for latest version
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: mongodb.enabled
