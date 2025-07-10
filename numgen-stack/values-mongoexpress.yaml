@@ -1,0 +1,79 @@
+# ===== values-mongoexpress.yaml (updated MONGO_URI) =====
+# Application metadata
+app:
+  name: mongo-express
+  namespace: numgen-app
+  labels:
+    app: mongo-express
+    component: admin
+
+# MongoDB configuration (disabled for this release)
+mongodb:
+  enabled: false  # Disable MongoDB for this release
+
+# Image configuration
+image:
+  repository: mongo-express
+  tag: "1-20-alpine3.19"
+  pullPolicy: IfNotPresent
+
+# Deployment configuration
+deployment:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+
+# Container configuration
+container:
+  name: mongo-express
+  port: 8081
+
+# Environment variables
+env:
+  - name: ME_CONFIG_MONGODB_SERVER
+    value: "numgen-mongodb"  # Updated to use Bitnami service name
+  - name: ME_CONFIG_MONGODB_PORT
+    value: "27017"
+
+# Service configuration
+service:
+  enabled: true
+  type: NodePort
+  port: 8081
+  targetPort: 8081
+
+# Resource limits
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "200m"
+
+# Auto-scaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+
+# Health checks (disabled - Mongo Express doesn't have dedicated health endpoints)
+probes:
+  readiness:
+    enabled: false
+  liveness:
+    enabled: false
+
+# Security configuration
+security:
+  imagePullSecrets: []
+
+# Persistence (disabled for Mongo Express)
+persistence:
+  enabled: false
+
+# Additional volumes
+volumes: []
+volumeMounts: []
+

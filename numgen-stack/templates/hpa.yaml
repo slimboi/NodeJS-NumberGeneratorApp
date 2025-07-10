@@ -1,0 +1,26 @@
+# ===== templates/hpa.yaml =====
+{{- if and .Values.numgen.enabled .Values.numgen.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .Values.numgen.app.name }}-hpa
+  namespace: {{ .Values.numgen.app.namespace }}
+  labels:
+    {{- range $key, $value := .Values.numgen.app.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Values.numgen.app.name }}
+  minReplicas: {{ .Values.numgen.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.numgen.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.numgen.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

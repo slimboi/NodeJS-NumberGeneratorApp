@@ -1,0 +1,44 @@
+# ===== templates/pvc.yaml =====
+{{- if and .Values.numgen.enabled .Values.numgen.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.numgen.app.name }}-pvc
+  namespace: {{ .Values.numgen.app.namespace }}
+  labels:
+    {{- range $key, $value := .Values.numgen.app.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.numgen.persistence.accessMode | default "ReadWriteOnce" }}
+  {{- if .Values.numgen.persistence.storageClass }}
+  storageClassName: {{ .Values.numgen.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.numgen.persistence.size | default "1Gi" }}
+{{- end }}
+
+---
+
+{{- if and .Values.mongoExpress.enabled .Values.mongoExpress.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.mongoExpress.app.name }}-pvc
+  namespace: {{ .Values.mongoExpress.app.namespace }}
+  labels:
+    {{- range $key, $value := .Values.mongoExpress.app.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.mongoExpress.persistence.accessMode | default "ReadWriteOnce" }}
+  {{- if .Values.mongoExpress.persistence.storageClass }}
+  storageClassName: {{ .Values.mongoExpress.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.mongoExpress.persistence.size | default "1Gi" }}
+{{- end }}
