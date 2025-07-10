@@ -1,3 +1,4 @@
+// require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
@@ -6,7 +7,11 @@ const app = express();
 app.use(bodyParser.json());
 app.use(express.static('views'));
 
-mongoose.connect('mongodb://mongo:27017/nomcomboDB')
+// Use environment variable for MongoDB connection string
+const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/nomcomboDB';
+console.log('Connecting to MongoDB:', mongoURI);
+
+mongoose.connect(mongoURI)
     .then(() => console.log("Connected to MongoDB"))
     .catch((error) => console.error("MongoDB connection error:", error));
 
@@ -24,7 +29,6 @@ const Combo = mongoose.model('Combo', ComboSchema);
 function generateRandomCombos(length, count) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     const combos = [];
-
     for (let i = 0; i < count; i++) {
         let str = '';
         for (let j = 0; j < length; j++) {
@@ -32,21 +36,20 @@ function generateRandomCombos(length, count) {
         }
         combos.push(str);
     }
-
     return combos;
 }
 
 // API endpoint to generate or update combinations for a user
 app.post('/generate', async (req, res) => {
     const { username, length, count } = req.body;
-
+    
     // Generate new combinations
     const newCombinations = generateRandomCombos(length, count);
-
+    
     try {
         // Find the user's record
         let userCombo = await Combo.findOne({ username });
-
+        
         if (userCombo) {
             // User exists, update their record by adding new combinations
             await Combo.updateOne(
@@ -69,5 +72,5 @@ app.post('/generate', async (req, res) => {
     }
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
