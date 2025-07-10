@@ -7,6 +7,10 @@ app:
     app: mongo-express
     component: admin
 
+# MongoDB configuration (disabled for this release)
+mongodb:
+  enabled: false  # Disable MongoDB for this release
+
 # Image configuration
 image:
   repository: mongo-express
@@ -27,7 +31,7 @@ container:
 # Environment variables
 env:
   - name: ME_CONFIG_MONGODB_SERVER
-    value: "{{ .Release.Name }}-mongodb"  # Updated to use Bitnami service name
+    value: "numgen-mongodb"  # Updated to use Bitnami service name
   - name: ME_CONFIG_MONGODB_PORT
     value: "27017"
 
@@ -72,3 +76,4 @@ persistence:
 # Additional volumes
 volumes: []
 volumeMounts: []
+

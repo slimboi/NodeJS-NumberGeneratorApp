@@ -96,6 +96,8 @@ sudo ./aws/install
 # Configure AWS credentials
 aws configure
 # Enter your Access Key ID, Secret Access Key, region (ap-southeast-2), and output format (json)
+
+aws s3 ls
 ```
 
 #### 5. Setup Kubernetes Cluster
@@ -119,11 +121,17 @@ aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS
 # Clone your repository (adjust URL as needed)
 git clone https://github.com/slimboi/NodeJS-NumberGeneratorApp.git
 cd NodeJS-NumberGeneratorApp
-git checkout feature/helm-refactor
-cd helm-numgen-app/
+git checkout feature/helm-bitnami
+cd helm-numgen-app-bitnami/
 
 # Validate chart
 helm lint .
+
+# Add bitnami repo
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+# Update dependencies
+helm dependency update
 
 # Deploy MongoDB
 helm install mongodb . -f values-mongodb.yaml --create-namespace --namespace numgen-app
