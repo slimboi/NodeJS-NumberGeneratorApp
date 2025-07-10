@@ -133,11 +133,8 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 # Update dependencies
 helm dependency update
 
-# Deploy MongoDB
-helm install mongodb . -f values-mongodb.yaml --create-namespace --namespace numgen-app
-
-# Deploy Mongo Express
-helm install mongoexpress . -f values-mongoexpress.yaml --namespace numgen-app
+# Deploy NumGen+MongoDB application
+helm install numgen . -f values-numgen.yaml --create-namespace --namespace numgen-app
 
 # Create ECR secret for NumGen app
 kubectl create secret docker-registry ecr-secret \
@@ -146,8 +143,12 @@ kubectl create secret docker-registry ecr-secret \
   --docker-password=$(aws ecr get-login-password --region ap-southeast-2) \
   --namespace=numgen-app
 
-# Deploy NumGen application
-helm install numgen . -f values-numgen.yaml --namespace numgen-app
+kubectl get pods -n numgen-app
+
+kubectl logs -l app=numgen -n numgen-app
+
+# Deploy Mongo Express
+helm install mongoexpress . -f values-mongoexpress.yaml --namespace numgen-app
 
 # Verify deployment
 kubectl get all -n numgen-app

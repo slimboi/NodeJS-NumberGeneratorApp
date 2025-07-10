@@ -8,6 +8,6 @@ appVersion: "1.0.0"
 
 dependencies:
   - name: mongodb
-    version: "15.6.13"  # Check for latest version
+    version: "16.5.29"  # Check for latest version
     repository: "https://charts.bitnami.com/bitnami"
     condition: mongodb.enabled
