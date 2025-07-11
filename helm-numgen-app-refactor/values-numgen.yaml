@@ -10,7 +10,7 @@ app:
 # Image configuration
 image:
   repository: 475325513391.dkr.ecr.ap-southeast-2.amazonaws.com/nomcombo-app
-  tag: "ec32efb"
+  tag: "3288527"
   pullPolicy: IfNotPresent
 
 # Deployment configuration
