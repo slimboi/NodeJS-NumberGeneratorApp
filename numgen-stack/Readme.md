@@ -15,7 +15,7 @@ This chart uses a **single set of templates** with **single consolidated values 
 ## Directory Structure
 
 ```
-numgen-chart/
+numgen-stack/
 ├── Chart.yaml                 # Chart metadata with Bitnami MongoDB dependency
 ├── values.yaml               # Single consolidated values file
 └── templates/
@@ -38,7 +38,6 @@ numgen-chart/
 
 This chart has been tested on:
 - **Local Development**: minikube on Ubuntu EC2 instance (t3.medium)
-- **Cloud**: Various Kubernetes distributions
 
 ## AWS EC2 + Minikube Deployment Guide
 
@@ -153,22 +152,22 @@ kubectl get all -n numgen-app
 
 #### 8. Access Applications via Port Forwarding
 ```bash
-# Forward NumGen app (port 8080 on EC2 maps to port 3000 in cluster)
-kubectl port-forward -n numgen-app --address 0.0.0.0 service/numgen 8080:3000 &
+# Forward NumGen app (port 3000 on EC2 maps to port 3000 in cluster)
+kubectl port-forward -n numgen-app --address 0.0.0.0 service/numgen 3000:3000 &
 
 # Forward Mongo Express (port 8081 on EC2 maps to port 8081 in cluster)
 kubectl port-forward -n numgen-app --address 0.0.0.0 service/mongo-express 8081:8081 &
 ```
 
 #### 9. Access Your Applications
-- **NumGen Application**: `http://<EC2-PUBLIC-IP>:8080`
+- **NumGen Application**: `http://<EC2-PUBLIC-IP>:3000`
 - **Mongo Express**: `http://<EC2-PUBLIC-IP>:8081`
   - Username: `admin`
   - Password: `MySecureRootPassword123!` (as configured in values.yaml)
 
 ### Important Security Notes for EC2 Deployment
 
-⚠️ **Security Group Configuration**: Ensure your EC2 security group allows inbound traffic on ports 8080 and 8081 from your IP address.
+⚠️ **Security Group Configuration**: Ensure your EC2 security group allows inbound traffic on ports 3000 and 8081 from your IP address.
 
 ⚠️ **Production Considerations**: 
 - Port forwarding is suitable for development/testing only
@@ -182,12 +181,12 @@ kubectl port-forward -n numgen-app --address 0.0.0.0 service/mongo-express 8081:
 **1. Port forwarding not accessible:**
 ```bash
 # Check if ports are listening
-netstat -tulpn | grep :8080
+netstat -tulpn | grep :3000
 netstat -tulpn | grep :8081
 
 # Restart port forwarding if needed
 pkill kubectl
-kubectl port-forward -n numgen-app --address 0.0.0.0 service/numgen 8080:3000 &
+kubectl port-forward -n numgen-app --address 0.0.0.0 service/numgen 3000:3000 &
 kubectl port-forward -n numgen-app --address 0.0.0.0 service/mongo-express 8081:8081 &
 ```
 
