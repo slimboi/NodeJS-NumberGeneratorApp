@@ -147,15 +147,15 @@ kubectl get all -n numgen-app
 
 #### 8. Access Applications via Port Forwarding
 ```bash
-# Forward NumGen app (port 8080 on EC2 maps to port 3000 in cluster)
-kubectl port-forward -n numgen-app --address 0.0.0.0 service/numgen 8080:3000 &
+# Forward NumGen app (port 3000 on EC2 maps to port 3000 in cluster)
+kubectl port-forward -n numgen-app --address 0.0.0.0 service/numgen 3000:3000 &
 
 # Forward Mongo Express (port 8081 on EC2 maps to port 8081 in cluster)
 kubectl port-forward -n numgen-app --address 0.0.0.0 service/mongo-express 8081:8081 &
 ```
 
 #### 9. Access Your Applications
-- **NumGen Application**: `http://<EC2-PUBLIC-IP>:8080`
+- **NumGen Application**: `http://<EC2-PUBLIC-IP>:3000`
 - **Mongo Express**: `http://<EC2-PUBLIC-IP>:8081`
   - Username: `admin`
   - Password: `pass`
