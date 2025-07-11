@@ -9,22 +9,21 @@ This chart uses a **single set of templates** with **multiple values files** app
 ## Architecture
 
 - **NumGen**: Node.js application for number generation
-- **MongoDB**: Database backend with persistent storage
+- **MongoDB**: Database backend with persistent storage (via Bitnami chart dependency)
 - **Mongo Express**: Web-based MongoDB admin interface
 
 ## Directory Structure
 
 ```
 numgen-chart/
-├── Chart.yaml                 # Chart metadata
-├── values.yaml               # Default values (for linting/fallback)
-├── values-numgen.yaml        # NumGen app configuration
-├── values-mongodb.yaml       # MongoDB configuration
+├── Chart.yaml                 # Chart metadata with Bitnami MongoDB dependency
+├── values-numgen.yaml        # NumGen app + MongoDB configuration
 ├── values-mongoexpress.yaml  # Mongo Express configuration
 └── templates/
     ├── deployment.yaml       # Single deployment template
     ├── service.yaml         # Single service template
-    └── pvc.yaml            # Persistent volume claim template
+    ├── pvc.yaml            # Persistent volume claim template
+    └── hpa.yaml            # Horizontal Pod Autoscaler template
 ```
 
 ## Prerequisites
@@ -33,6 +32,34 @@ numgen-chart/
 - Helm 3.x
 - kubectl configured to access your cluster
 - For AWS ECR images: AWS CLI configured with appropriate permissions
+- AWS region: ap-southeast-2 (Sydney) - adjust commands if using different region
+
+## Important: Service Discovery in Multiple Release Deployment
+
+When using multiple Helm releases, service discovery requires careful configuration:
+
+- **NumGen release** (`numgen`) creates: `numgen-mongodb` service
+- **Mongo Express release** (`mongoexpress`) needs to connect to: `numgen-mongodb` 
+
+Therefore, Mongo Express uses a **configurable service name** to ensure proper connectivity across releases:
+
+```yaml
+# In values-mongoexpress.yaml
+mongodb:
+  enabled: false  # Disable MongoDB for this release
+  serviceName: "numgen-mongodb"  # Configurable service name
+
+env:
+  - name: ME_CONFIG_MONGODB_SERVER
+    value: "{{ .Values.mongodb.serviceName }}"  # Dynamic reference
+```
+
+**Design Benefits:**
+- **Flexibility**: Can easily change which MongoDB service to connect to
+- **No Hardcoding**: Service name is configurable via values
+- **Cross-Release Connectivity**: Mongo Express can connect to MongoDB from any release
+
+**Note**: If you change the NumGen release name, update the `mongodb.serviceName` value in `values-mongoexpress.yaml` to match.
 
 ## Deployment Environments
 
@@ -97,6 +124,7 @@ sudo ./aws/install
 aws configure
 # Enter your Access Key ID, Secret Access Key, region (ap-southeast-2), and output format (json)
 
+# Verify AWS access
 aws s3 ls
 ```
 
@@ -133,50 +161,52 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 # Update dependencies
 helm dependency update
 
-# Deploy NumGen+MongoDB application
+# Deploy NumGen+MongoDB application (Helm creates namespace)
 helm install numgen . -f values-numgen.yaml --create-namespace --namespace numgen-app
 
-# Create ECR secret for NumGen app
+# Create ECR secret after namespace exists
 kubectl create secret docker-registry ecr-secret \
   --docker-server=475325513391.dkr.ecr.ap-southeast-2.amazonaws.com \
   --docker-username=AWS \
   --docker-password=$(aws ecr get-login-password --region ap-southeast-2) \
   --namespace=numgen-app
 
-kubectl get pods -n numgen-app
+# Restart NumGen deployment to pick up the ECR secret
+kubectl rollout restart deployment/numgen -n numgen-app
 
+# Check NumGen deployment status
+kubectl get pods -n numgen-app
 kubectl logs -l app=numgen -n numgen-app
 
-# Deploy Mongo Express
+# Deploy Mongo Express (connects to existing MongoDB)
 helm install mongoexpress . -f values-mongoexpress.yaml --namespace numgen-app
 
-# Verify deployment
+# Verify complete deployment
 kubectl get all -n numgen-app
 ```
 
 #### 8. Access Applications via Port Forwarding
 ```bash
-# Forward NumGen app (port 8080 on EC2 maps to port 3000 in cluster)
-kubectl port-forward -n numgen-app --address 0.0.0.0 service/numgen 8080:3000 &
+# Forward NumGen app
+kubectl port-forward -n numgen-app --address 0.0.0.0 service/numgen 3000:3000 &
 
-# Forward Mongo Express (port 8081 on EC2 maps to port 8081 in cluster)
+# Forward Mongo Express
 kubectl port-forward -n numgen-app --address 0.0.0.0 service/mongo-express 8081:8081 &
 ```
 
 #### 9. Access Your Applications
-- **NumGen Application**: `http://<EC2-PUBLIC-IP>:8080`
+- **NumGen Application**: `http://<EC2-PUBLIC-IP>:3000`
 - **Mongo Express**: `http://<EC2-PUBLIC-IP>:8081`
-  - Username: `admin`
-  - Password: `pass`
+  - No authentication required (as configured in values)
 
 ### Important Security Notes for EC2 Deployment
 
-⚠️ **Security Group Configuration**: Ensure your EC2 security group allows inbound traffic on ports 8080 and 8081 from your IP address.
+⚠️ **Security Group Configuration**: Ensure your EC2 security group allows inbound traffic on ports 3000 and 8081 from your IP address.
 
 ⚠️ **Production Considerations**: 
 - Port forwarding is suitable for development/testing only
 - For production, consider using Ingress controllers or LoadBalancer services
-- Secure your MongoDB with authentication
+- MongoDB is currently configured without authentication - enable for production
 - Use HTTPS for web interfaces
 
 ### Troubleshooting EC2/Minikube Specific Issues
@@ -184,12 +214,12 @@ kubectl port-forward -n numgen-app --address 0.0.0.0 service/mongo-express 8081:
 **1. Port forwarding not accessible:**
 ```bash
 # Check if ports are listening
-netstat -tulpn | grep :8080
+netstat -tulpn | grep :3000
 netstat -tulpn | grep :8081
 
 # Restart port forwarding if needed
 pkill kubectl
-kubectl port-forward -n numgen-app --address 0.0.0.0 service/numgen 8080:3000 &
+kubectl port-forward -n numgen-app --address 0.0.0.0 service/numgen 3000:3000 &
 kubectl port-forward -n numgen-app --address 0.0.0.0 service/mongo-express 8081:8081 &
 ```
 
@@ -205,6 +235,9 @@ kubectl create secret docker-registry ecr-secret \
   --docker-username=AWS \
   --docker-password=$(aws ecr get-login-password --region ap-southeast-2) \
   --namespace=numgen-app
+
+# Restart deployment
+kubectl rollout restart deployment/numgen -n numgen-app
 ```
 
 **3. Minikube resource issues:**
@@ -221,93 +254,17 @@ kubectl top nodes
 kubectl top pods -n numgen-app
 ```
 
-## Quick Start
-
-### Standard Deployment
-
-1. **Clone/Download the chart**
-2. **Navigate to the chart directory**
-   ```bash
-   cd numgen-chart
-   ```
-
-3. **Deploy the complete stack**
-   ```bash
-   # Deploy MongoDB first (required by other apps)
-   helm install mongodb . -f values-mongodb.yaml --create-namespace --namespace numgen-app
-   
-   # Deploy Mongo Express
-   helm install mongoexpress . -f values-mongoexpress.yaml --namespace numgen-app
-   
-   # Create ECR secret (if using AWS ECR images)
-   kubectl create secret docker-registry ecr-secret \
-     --docker-server=475325513391.dkr.ecr.ap-southeast-2.amazonaws.com \
-     --docker-username=AWS \
-     --docker-password=$(aws ecr get-login-password --region ap-southeast-2) \
-     --namespace=numgen-app
-   
-   # Deploy NumGen application
-   helm install numgen . -f values-numgen.yaml --namespace numgen-app
-   ```
-
-## Individual Application Deployment
-
-### 1. MongoDB Database
-
-MongoDB provides the database backend with persistent storage.
-
+**4. Mongo Express connection issues:**
 ```bash
-# Deploy MongoDB
-helm install mongodb . -f values-mongodb.yaml --create-namespace --namespace numgen-app
+# Check if MongoDB service exists
+kubectl get svc numgen-mongodb -n numgen-app
 
-# Verify deployment
-kubectl get pods -n numgen-app -l app=mongo
-kubectl get pvc -n numgen-app
+# Check Mongo Express logs
+kubectl logs -l app=mongo-express -n numgen-app
+
+# Verify service name configuration
+kubectl describe deployment mongo-express -n numgen-app | grep ME_CONFIG_MONGODB_SERVER
 ```
-
-**Key Configuration Options (values-mongodb.yaml):**
-- **Image**: `mongo:8.0.10`
-- **Storage**: 1Gi persistent volume
-- **Resources**: 256Mi-512Mi memory, 250m-500m CPU
-- **Health Checks**: MongoDB ping commands
-- **Service**: ClusterIP on port 27017
-
-### 2. Mongo Express (Admin Interface)
-
-Web-based MongoDB administration tool.
-
-```bash
-# Deploy Mongo Express (requires MongoDB to be running)
-helm install mongoexpress . -f values-mongoexpress.yaml --namespace numgen-app
-
-# Get access URL
-kubectl get svc mongo-express -n numgen-app
-```
-
-**Key Configuration Options (values-mongoexpress.yaml):**
-- **Image**: `mongo-express:1-20-alpine3.19`
-- **Service**: NodePort on port 8081
-- **Environment**: Configured to connect to `mongo` service
-- **Resources**: 128Mi-256Mi memory, 100m-200m CPU
-
-### 3. NumGen Application
-
-The main Node.js application.
-
-```bash
-# Deploy NumGen application
-helm install numgen . -f values-numgen.yaml --namespace numgen-app
-
-# Get access URL
-kubectl get svc numgen -n numgen-app
-```
-
-**Key Configuration Options (values-numgen.yaml):**
-- **Image**: Custom ECR image
-- **Replicas**: 2 for high availability
-- **Service**: NodePort on port 3000
-- **Health Checks**: HTTP probes on `/` endpoint
-- **Security**: ECR image pull secrets
 
 ## Management Commands
 
@@ -320,9 +277,13 @@ helm list -n numgen-app
 kubectl get all -n numgen-app
 
 # View specific app status
-helm status mongodb -n numgen-app
-helm status mongoexpress -n numgen-app
 helm status numgen -n numgen-app
+helm status mongoexpress -n numgen-app
+
+# Check specific components
+kubectl get pods -l app=numgen -n numgen-app
+kubectl get pods -l app=mongo-express -n numgen-app
+kubectl get pods -l app.kubernetes.io/name=mongodb -n numgen-app
 ```
 
 ### Upgrading Applications
@@ -330,11 +291,11 @@ helm status numgen -n numgen-app
 # Scale NumGen application
 helm upgrade numgen . -f values-numgen.yaml --set deployment.replicas=3 --namespace numgen-app
 
-# Update MongoDB image version
-helm upgrade mongodb . -f values-mongodb.yaml --set image.tag=8.0.11 --namespace numgen-app
-
-# Update with modified values file
+# Update Mongo Express configuration
 helm upgrade mongoexpress . -f values-mongoexpress.yaml --namespace numgen-app
+
+# Change MongoDB service name in Mongo Express
+helm upgrade mongoexpress . -f values-mongoexpress.yaml --set mongodb.serviceName=new-mongodb-service --namespace numgen-app
 ```
 
 ### Accessing Applications
@@ -349,9 +310,12 @@ kubectl port-forward svc/mongo-express 8081:8081 -n numgen-app
 
 ### Rollback
 ```bash
+# View release history
+helm history numgen -n numgen-app
+helm history mongoexpress -n numgen-app
+
 # Rollback to previous version
 helm rollback numgen 1 -n numgen-app
-helm rollback mongodb 1 -n numgen-app
 helm rollback mongoexpress 1 -n numgen-app
 ```
 
@@ -360,7 +324,6 @@ helm rollback mongoexpress 1 -n numgen-app
 # Remove individual applications
 helm uninstall numgen -n numgen-app
 helm uninstall mongoexpress -n numgen-app
-helm uninstall mongodb -n numgen-app
 
 # Remove namespace (optional)
 kubectl delete namespace numgen-app
@@ -374,7 +337,6 @@ kubectl delete namespace numgen-app
 helm lint .
 
 # Lint specific configurations
-helm lint . -f values-mongodb.yaml
 helm lint . -f values-mongoexpress.yaml
 helm lint . -f values-numgen.yaml
 ```
@@ -382,15 +344,18 @@ helm lint . -f values-numgen.yaml
 ### Template Testing
 ```bash
 # Generate templates without installing
-helm template test . -f values-mongodb.yaml
 helm template test . -f values-mongoexpress.yaml
 helm template test . -f values-numgen.yaml
+
+# Check specific template
+helm template test . -f values-numgen.yaml -s templates/deployment.yaml
 ```
 
 ### Dry Run
 ```bash
 # Test installation without applying
-helm install --dry-run --debug mongodb . -f values-mongodb.yaml --namespace numgen-app
+helm install --dry-run --debug mongoexpress . -f values-mongoexpress.yaml --namespace numgen-app
+helm install --dry-run --debug numgen . -f values-numgen.yaml --namespace numgen-app
 ```
 
 ## Customization
@@ -401,14 +366,17 @@ helm install --dry-run --debug mongodb . -f values-mongodb.yaml --namespace numg
 ```bash
 # Scale NumGen to 5 replicas
 helm upgrade numgen . -f values-numgen.yaml --set deployment.replicas=5 --namespace numgen-app
+
+# Enable horizontal pod autoscaling
+helm upgrade numgen . -f values-numgen.yaml --set autoscaling.enabled=true --namespace numgen-app
 ```
 
 **Resource Adjustments:**
 ```bash
-# Increase MongoDB memory
-helm upgrade mongodb . -f values-mongodb.yaml \
-  --set resources.limits.memory=1Gi \
-  --set resources.requests.memory=512Mi \
+# Increase MongoDB memory (via NumGen release)
+helm upgrade numgen . -f values-numgen.yaml \
+  --set mongodb.resources.limits.memory=1Gi \
+  --set mongodb.resources.requests.memory=512Mi \
   --namespace numgen-app
 ```
 
@@ -416,6 +384,12 @@ helm upgrade mongodb . -f values-mongodb.yaml \
 ```bash
 # Change NumGen to LoadBalancer
 helm upgrade numgen . -f values-numgen.yaml --set service.type=LoadBalancer --namespace numgen-app
+```
+
+**MongoDB Service Name Changes:**
+```bash
+# Update Mongo Express to connect to different MongoDB
+helm upgrade mongoexpress . -f values-mongoexpress.yaml --set mongodb.serviceName=different-mongodb --namespace numgen-app
 ```
 
 ### Creating Custom Values Files
@@ -428,7 +402,7 @@ cp values-numgen.yaml values-numgen-prod.yaml
 # Edit values-numgen-prod.yaml with production settings
 
 # Deploy with custom values
-helm install numgen-prod . -f values-numgen-prod.yaml --namespace numgen-prod
+helm install numgen-prod . -f values-numgen-prod.yaml --namespace numgen-prod --create-namespace
 ```
 
 ## Troubleshooting
@@ -439,24 +413,36 @@ helm install numgen-prod . -f values-numgen-prod.yaml --namespace numgen-prod
 ```bash
 kubectl describe pod <pod-name> -n numgen-app
 kubectl logs <pod-name> -n numgen-app
+
+# Check for image pull issues
+kubectl get events -n numgen-app --sort-by=.metadata.creationTimestamp
 ```
 
 **2. Service connectivity:**
 ```bash
 kubectl get endpoints -n numgen-app
-kubectl exec -it <pod-name> -n numgen-app -- nslookup mongo
+kubectl exec -it <numgen-pod-name> -n numgen-app -- nslookup numgen-mongodb
 ```
 
 **3. Persistent Volume issues:**
 ```bash
 kubectl get pv
-kubectl describe pvc mongodb-pvc -n numgen-app
+kubectl describe pvc -n numgen-app
 ```
 
 **4. Image pull issues:**
 ```bash
 kubectl describe pod <pod-name> -n numgen-app
-# Check imagePullSecrets configuration
+# Check imagePullSecrets configuration in pod spec
+```
+
+**5. Cross-release connectivity:**
+```bash
+# Test Mongo Express -> MongoDB connectivity
+kubectl exec -it <mongo-express-pod> -n numgen-app -- nc -zv numgen-mongodb 27017
+
+# Check Mongo Express environment variables
+kubectl exec -it <mongo-express-pod> -n numgen-app -- env | grep MONGO
 ```
 
 ### Health Checks
@@ -466,401 +452,60 @@ kubectl describe pod <pod-name> -n numgen-app
 # NumGen health
 kubectl exec -it $(kubectl get pod -l app=numgen -n numgen-app -o jsonpath='{.items[0].metadata.name}') -n numgen-app -- wget -qO- http://localhost:3000/
 
-# MongoDB health
-kubectl exec -it $(kubectl get pod -l app=mongo -n numgen-app -o jsonpath='{.items[0].metadata.name}') -n numgen-app -- mongosh --eval "db.adminCommand('ping')"
+# MongoDB health (using Bitnami service selector)
+kubectl exec -it $(kubectl get pod -l app.kubernetes.io/name=mongodb -n numgen-app -o jsonpath='{.items[0].metadata.name}') -n numgen-app -- mongosh --eval "db.adminCommand('ping')"
+
+# Check MongoDB connection from NumGen app
+kubectl exec -it $(kubectl get pod -l app=numgen -n numgen-app -o jsonpath='{.items[0].metadata.name}') -n numgen-app -- nc -zv numgen-mongodb 27017
 ```
 
 ## Chart Features
 
-- ✅ **Single Template Set**: Reusable templates for all applications
-- ✅ **Multiple Values Files**: App-specific configuration
-- ✅ **No Hardcoded Values**: Everything configurable via values
-- ✅ **Flexible Probes**: Support for HTTP and exec health checks
-- ✅ **Optional Persistence**: Configurable storage for stateful apps
-- ✅ **Resource Management**: Customizable CPU/memory limits
-- ✅ **Security**: Image pull secrets support
-- ✅ **High Availability**: Multi-replica support
+### Multiple Release Architecture
+- **Independent Lifecycle**: Each component (NumGen, Mongo Express) can be deployed, upgraded, and scaled independently
+- **Flexible Configuration**: Different values files allow customization per component
+- **Cross-Release Connectivity**: Configurable service names enable communication between releases
 
-## Advanced Configuration Examples
+### Template Flexibility
+- **Reusable Templates**: Single set of templates handles multiple application types
+- **Configuration-Driven**: All customization through values files, no template changes needed
+- **Multi-Environment Support**: Same templates work across development, staging, and production
 
-### Environment Variables Examples
+### Production-Ready Features
+- **Health Checks**: Comprehensive readiness and liveness probes
+- **Resource Management**: CPU and memory limits/requests for all components
+- **Horizontal Pod Autoscaling**: Automatic scaling based on CPU/memory usage
+- **Persistent Storage**: MongoDB data persistence with configurable storage classes
+- **Security**: Image pull secrets, configurable service accounts
 
-#### Basic Environment Variables
-```yaml
-# Simple key-value environment variables
-env:
-  - name: NODE_ENV
-    value: "production"
-  - name: PORT
-    value: "3000"
-  - name: DEBUG
-    value: "false"
-  - name: LOG_LEVEL
-    value: "info"
-```
+### Bitnami MongoDB Integration
+- **Production-Ready**: Uses well-maintained Bitnami MongoDB chart as dependency
+- **Configurable Authentication**: Can enable/disable MongoDB authentication
+- **High Availability**: Support for standalone and replica set architectures
+- **Monitoring**: Built-in health checks and metrics endpoints
+- **Backup Support**: Compatible with standard MongoDB backup tools
 
-#### Environment Variables from Secrets
-```yaml
-# Reference values from Kubernetes secrets
-env:
-  - name: DATABASE_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: db-credentials
-        key: password
-  - name: API_KEY
-    valueFrom:
-      secretKeyRef:
-        name: api-secrets
-        key: api-key
-  - name: JWT_SECRET
-    valueFrom:
-      secretKeyRef:
-        name: auth-secrets
-        key: jwt-secret
-```
+### Development Features
+- **Port Forwarding Support**: Easy local access for development and testing
+- **Independent Scaling**: Scale individual components without affecting others
+- **Debug-Friendly**: Comprehensive logging and troubleshooting tools
+- **Quick Updates**: Fast deployment updates with Helm upgrades
+- **Configurable Service Discovery**: Flexible MongoDB service name configuration
 
-#### Environment Variables from ConfigMaps
-```yaml
-# Reference values from ConfigMaps
-env:
-  - name: APP_CONFIG
-    valueFrom:
-      configMapKeyRef:
-        name: app-config
-        key: config.json
-  - name: FEATURE_FLAGS
-    valueFrom:
-      configMapKeyRef:
-        name: feature-config
-        key: flags
-```
-
-#### Mixed Environment Variables (Production Example)
-```yaml
-# Real-world production environment configuration
-env:
-  # Direct values
-  - name: NODE_ENV
-    value: "production"
-  - name: PORT
-    value: "3000"
-  - name: REDIS_HOST
-    value: "redis.cache.svc.cluster.local"
-  - name: REDIS_PORT
-    value: "6379"
-  
-  # From secrets
-  - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        name: database-credentials
-        key: connection-string
-  - name: REDIS_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: redis-auth
-        key: password
-  
-  # From configmaps
-  - name: LOG_LEVEL
-    valueFrom:
-      configMapKeyRef:
-        name: logging-config
-        key: level
-  - name: MONITORING_ENDPOINT
-    valueFrom:
-      configMapKeyRef:
-        name: monitoring-config
-        key: endpoint
-```
-
-### Health Probes Examples
-
-#### HTTP Health Probes (Web Applications)
-```yaml
-# Typical web application health checks
-probes:
-  readiness:
-    enabled: true
-    type: httpGet
-    httpGet:
-      path: /health/ready
-      port: 3000
-    initialDelaySeconds: 10
-    periodSeconds: 5
-    timeoutSeconds: 3
-    failureThreshold: 3
-  liveness:
-    enabled: true
-    type: httpGet
-    httpGet:
-      path: /health/live
-      port: 3000
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 3
-```
-
-#### Exec Health Probes (Database Applications)
-```yaml
-# Database health checks using command execution
-probes:
-  readiness:
-    enabled: true
-    type: exec
-    exec:
-      command:
-        - mongosh
-        - --eval
-        - "db.adminCommand('ping')"
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 10
-    failureThreshold: 3
-  liveness:
-    enabled: true
-    type: exec
-    exec:
-      command:
-        - mongosh
-        - --eval
-        - "db.adminCommand('ping')"
-    initialDelaySeconds: 60
-    periodSeconds: 30
-    timeoutSeconds: 10
-    failureThreshold: 3
-```
-
-#### TCP Socket Probes (Network Services)
-```yaml
-# Simple port connectivity checks
-probes:
-  readiness:
-    enabled: true
-    type: tcpSocket
-    tcpSocket:
-      port: 5432
-    initialDelaySeconds: 15
-    periodSeconds: 5
-    timeoutSeconds: 3
-    failureThreshold: 3
-  liveness:
-    enabled: true
-    type: tcpSocket
-    tcpSocket:
-      port: 5432
-    initialDelaySeconds: 45
-    periodSeconds: 20
-    timeoutSeconds: 5
-    failureThreshold: 3
-```
-
-#### Disabled Probes (Applications without health endpoints)
-```yaml
-# For applications like Mongo Express that don't have reliable health endpoints
-probes:
-  readiness:
-    enabled: false
-  liveness:
-    enabled: false
-```
-
-### Volume Configuration Examples
-
-#### Basic Persistent Volume (Database Storage)
-```yaml
-# Simple persistent storage for databases
-persistence:
-  enabled: true
-  storageClass: "gp2"
-  accessMode: ReadWriteOnce
-  size: 10Gi
-  mountPath: /data/db
-
-volumes: []
-volumeMounts: []
-```
-
-#### ConfigMap Volume (Application Configuration)
-```yaml
-# Mount configuration files from ConfigMaps
-persistence:
-  enabled: false
-
-volumes:
-  - name: app-config
-    configMap:
-      name: application-config
-      items:
-        - key: app.conf
-          path: application.conf
-        - key: logging.conf
-          path: logging.conf
-
-volumeMounts:
-  - name: app-config
-    mountPath: /etc/app/config
-    readOnly: true
-```
-
-#### Secret Volume (Certificates and Keys)
-```yaml
-# Mount certificates and secrets
-persistence:
-  enabled: false
-
-volumes:
-  - name: tls-certs
-    secret:
-      secretName: app-tls-certificates
-      items:
-        - key: tls.crt
-          path: server.crt
-        - key: tls.key
-          path: server.key
-  - name: api-keys
-    secret:
-      secretName: external-api-keys
-
-volumeMounts:
-  - name: tls-certs
-    mountPath: /etc/ssl/certs
-    readOnly: true
-  - name: api-keys
-    mountPath: /etc/secrets/api
-    readOnly: true
-```
-
-#### EmptyDir Volume (Temporary Storage)
-```yaml
-# Temporary storage shared between containers
-persistence:
-  enabled: false
-
-volumes:
-  - name: temp-storage
-    emptyDir: {}
-  - name: cache-storage
-    emptyDir:
-      sizeLimit: 1Gi
-
-volumeMounts:
-  - name: temp-storage
-    mountPath: /tmp/shared
-  - name: cache-storage
-    mountPath: /var/cache/app
-```
-
-### Complete Application Examples
-
-#### Stateless Web Application
-```yaml
-# Complete configuration for a stateless web app
-app:
-  name: web-app
-  namespace: production
-  labels:
-    app: web-app
-    component: frontend
-    version: v2.1.0
-
-env:
-  - name: NODE_ENV
-    value: "production"
-  - name: PORT
-    value: "3000"
-  - name: API_ENDPOINT
-    valueFrom:
-      configMapKeyRef:
-        name: api-config
-        key: endpoint
-  - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        name: db-credentials
-        key: connection-string
-
-probes:
-  readiness:
-    enabled: true
-    type: httpGet
-    httpGet:
-      path: /health
-      port: 3000
-    initialDelaySeconds: 10
-    periodSeconds: 5
-    timeoutSeconds: 3
-    failureThreshold: 3
-  liveness:
-    enabled: true
-    type: httpGet
-    httpGet:
-      path: /health
-      port: 3000
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 3
-
-persistence:
-  enabled: false
-
-volumes:
-  - name: app-config
-    configMap:
-      name: web-app-config
-
-volumeMounts:
-  - name: app-config
-    mountPath: /etc/app/config
-    readOnly: true
-```
-
-### Best Practices
-
-#### Environment Variables
-- ✅ Use secrets for sensitive data (passwords, API keys)
-- ✅ Use ConfigMaps for non-sensitive configuration
-- ✅ Quote all string values to avoid YAML parsing issues
-- ✅ Use descriptive names for environment variables
-- ❌ Never hardcode sensitive values in values files
-
-#### Health Probes
-- ✅ Always use readiness probes for load balancer integration
-- ✅ Set appropriate timeouts and failure thresholds
-- ✅ Use liveness probes sparingly (only when restart helps)
-- ✅ Test probe endpoints independently
-- ❌ Don't use probes for applications without health endpoints
-
-#### Volumes
-- ✅ Use persistent volumes for data that must survive pod restarts
-- ✅ Use ConfigMaps and Secrets for configuration files
-- ✅ Set appropriate access modes and storage classes
-- ✅ Use readOnly mounts when data shouldn't be modified
-- ❌ Avoid HostPath volumes in production (security risk)
-
-### Template Functions Reference
-- `{{ .Values.* }}` - Access values from values files
-- `{{- if condition }}` - Conditional rendering
-- `{{- range array }}` - Loop through arrays
-- `{{- end }}` - Close conditional/loop blocks
-- `{{ quote }}` - Add quotes around values
-- `{{ default "value" }}` - Provide default values
-- `{{- toYaml | nindent }}` - Format YAML with proper indentation
-- `{{- and condition1 condition2 }}` - Logical AND
-- `{{- or condition1 condition2 }}` - Logical OR
-- `{{- eq value1 value2 }}` - Equality comparison
+### Service Discovery Design
+- **Cross-Release Communication**: Configurable service names enable connectivity between different Helm releases
+- **Template Flexibility**: Environment variables support both static and dynamic values
+- **Easy Reconfiguration**: Change target services without template modifications
 
 ## Contributing
 
 To modify this chart:
 
 1. Update the appropriate values file for configuration changes
-2. Modify templates for structural changes
+2. Modify templates for structural changes  
 3. Test with `helm lint` and `helm template`
 4. Validate with `--dry-run` before deployment
+5. When changing service names, ensure dependent services are updated accordingly
 
 ## Support
 
@@ -868,3 +513,5 @@ For issues or questions:
 - Check the troubleshooting section above
 - Validate your values files with `helm lint`
 - Review Kubernetes events: `kubectl get events -n numgen-app`
+- Verify service connectivity between releases
+- Check that MongoDB service names match between NumGen and Mongo Express configurations

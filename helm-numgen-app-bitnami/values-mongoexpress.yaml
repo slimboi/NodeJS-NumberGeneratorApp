@@ -1,4 +1,4 @@
-# ===== values-mongoexpress.yaml (updated MONGO_URI) =====
+# ===== values-mongoexpress.yaml (FIXED) =====
 # Application metadata
 app:
   name: mongo-express
@@ -7,9 +7,10 @@ app:
     app: mongo-express
     component: admin
 
-# MongoDB configuration (disabled for this release)
+# MongoDB configuration (disabled for this release, but configurable service name)
 mongodb:
   enabled: false  # Disable MongoDB for this release
+  serviceName: "numgen-mongodb"  # Configurable service name
 
 # Image configuration
 image:
@@ -31,7 +32,7 @@ container:
 # Environment variables
 env:
   - name: ME_CONFIG_MONGODB_SERVER
-    value: "numgen-mongodb"  # Updated to use Bitnami service name
+    value: "{{ .Values.mongodb.serviceName }}"  # Uses configurable service name
   - name: ME_CONFIG_MONGODB_PORT
     value: "27017"
 
