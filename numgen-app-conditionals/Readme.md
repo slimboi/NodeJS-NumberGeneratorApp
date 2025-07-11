@@ -141,6 +141,10 @@ kubectl create secret docker-registry ecr-secret \
 # Deploy NumGen application
 helm install numgen . -f values-numgen.yaml --namespace numgen-app
 
+# Check NumGen deployment status
+kubectl get pods -n numgen-app
+kubectl logs -l app=numgen -n numgen-app
+
 # Verify deployment
 kubectl get all -n numgen-app
 ```
