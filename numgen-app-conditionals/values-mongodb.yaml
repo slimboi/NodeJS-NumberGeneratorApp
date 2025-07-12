@@ -1,0 +1,91 @@
+# ===== values-mongodb.yaml =====
+# Application metadata
+app:
+  name: mongo
+  namespace: numgen-app
+  labels:
+    app: mongo
+    component: database
+
+# Image configuration
+image:
+  repository: mongo
+  tag: "8.0.10"
+  pullPolicy: IfNotPresent
+
+# Deployment configuration
+deployment:
+  replicas: 1
+  strategy:
+    type: Recreate
+
+# Container configuration
+container:
+  name: mongo
+  port: 27017
+
+# Environment variables (EMPTY = No Authentication)
+env: []
+
+# Service configuration
+service:
+  enabled: true
+  type: ClusterIP
+  port: 27017
+  targetPort: 27017
+
+# Resource limits
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "250m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+# Auto-scaling (disabled for stateful apps)
+autoscaling:
+  enabled: false
+
+# Health checks
+probes:
+  readiness:
+    enabled: true
+    type: exec
+    exec:
+      command:
+        - mongosh
+        - --eval
+        - "db.adminCommand('ping')"
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 3
+  liveness:
+    enabled: true
+    type: exec
+    exec:
+      command:
+        - mongosh
+        - --eval
+        - "db.adminCommand('ping')"
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+
+# Security configuration
+security:
+  imagePullSecrets: []
+
+# Persistence configuration
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  mountPath: /data/db
+
+# Additional volumes
+volumes: []
+volumeMounts: []

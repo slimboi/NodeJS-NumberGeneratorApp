@@ -1,0 +1,39 @@
+# ===== templates/service.yaml =====
+# Service template - only creates service if enabled in values
+# CONDITIONAL: Entire service resource is optional
+{{- if .Values.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.app.name }}
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    # LOOP: Apply same labels as deployment for consistency
+    {{- range $key, $value := .Values.app.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  selector:
+    app: {{ .Values.app.name }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      # CONDITIONAL: Only add nodePort for NodePort service type
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
+  type: {{ .Values.service.type }}
+  
+  # CONDITIONAL: LoadBalancer-specific configurations
+  # Only add these fields for LoadBalancer service type
+  {{- if and (eq .Values.service.type "LoadBalancer") .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.service.loadBalancerIP }}
+  {{- end }}
+  {{- if and (eq .Values.service.type "LoadBalancer") .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    # LOOP: Add multiple source ranges for LoadBalancer
+    {{- range .Values.service.loadBalancerSourceRanges }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+{{- end }}

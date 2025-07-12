@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: numgen
+  namespace: {{ .Values.global.namespace }}
+spec:
+  selector:
+    app: numgen
+  ports:
+  - port: {{ .Values.numgen.service.port }}
+    targetPort: {{ .Values.numgen.service.targetPort }}
+  type: {{ .Values.numgen.service.type }}

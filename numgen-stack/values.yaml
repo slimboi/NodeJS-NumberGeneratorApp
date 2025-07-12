@@ -1,0 +1,223 @@
+# ===== values.yaml (Single file for all components) =====
+# Global configuration
+global:
+  namespace: numgen-app
+  releaseName: numgen-stack
+
+# =============================================================================
+# NumGen Application Configuration
+# =============================================================================
+numgen:
+  enabled: true
+  
+  app:
+    name: numgen
+    namespace: numgen-app
+    labels:
+      app: numgen
+      component: frontend
+
+  image:
+    repository: 475325513391.dkr.ecr.ap-southeast-2.amazonaws.com/nomcombo-app
+    tag: "ee25082"
+    pullPolicy: IfNotPresent
+
+  deployment:
+    replicas: 2
+    strategy:
+      type: RollingUpdate
+
+  container:
+    name: numgen
+    port: 3000
+
+  env:
+    - name: NODE_ENV
+      value: "production"
+    - name: PORT
+      value: "3000"
+    - name: MONGO_URI
+      valueFrom:
+        secretKeyRef:
+          name: "{{ .Release.Name }}-mongodb-connection"
+          key: mongodb-uri
+
+  service:
+    enabled: true
+    type: NodePort
+    port: 3000
+    targetPort: 3000
+
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+  probes:
+    readiness:
+      enabled: true
+      type: httpGet
+      httpGet:
+        path: /
+        port: 3000
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+    liveness:
+      enabled: true
+      type: httpGet
+      httpGet:
+        path: /
+        port: 3000
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+
+  security:
+    imagePullSecrets:
+      - name: ecr-secret
+
+  persistence:
+    enabled: false
+
+  volumes: []
+  volumeMounts: []
+
+# =============================================================================
+# Mongo Express Configuration
+# =============================================================================
+mongoExpress:
+  enabled: true
+  
+  app:
+    name: mongo-express
+    namespace: numgen-app
+    labels:
+      app: mongo-express
+      component: admin
+
+  image:
+    repository: mongo-express
+    tag: "1-20-alpine3.19"
+    pullPolicy: IfNotPresent
+
+  deployment:
+    replicas: 1
+    strategy:
+      type: RollingUpdate
+
+  container:
+    name: mongo-express
+    port: 8081
+
+  env:
+    - name: ME_CONFIG_MONGODB_SERVER
+      value: "{{ .Release.Name }}-mongodb"
+    - name: ME_CONFIG_MONGODB_PORT
+      value: "27017"
+    - name: ME_CONFIG_MONGODB_ENABLE_ADMIN
+      value: "true"
+    - name: ME_CONFIG_MONGODB_ADMINUSERNAME
+      value: "admin"
+    - name: ME_CONFIG_MONGODB_ADMINPASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: "{{ .Release.Name }}-mongodb"
+          key: mongodb-root-password
+    - name: ME_CONFIG_MONGODB_AUTH_DATABASE
+      value: "admin"
+
+  service:
+    enabled: true
+    type: NodePort
+    port: 8081
+    targetPort: 8081
+
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+  autoscaling:
+    enabled: false
+
+  probes:
+    readiness:
+      enabled: false
+    liveness:
+      enabled: false
+
+  security:
+    imagePullSecrets: []
+
+  persistence:
+    enabled: false
+
+  volumes: []
+  volumeMounts: []
+
+# =============================================================================
+# MongoDB Configuration (Bitnami Chart)
+# =============================================================================
+mongodb:
+  enabled: true
+  
+  auth:
+    enabled: true
+    rootUser: "admin"
+    rootPassword: "MySecureRootPassword123!"
+    username: "numgenuser"
+    password: "MySecureUserPassword123!"
+    database: "nomcomboDB"
+
+  architecture: standalone
+
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  service:
+    type: ClusterIP
+    ports:
+      mongodb: 27017
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 6
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 6
+
+---

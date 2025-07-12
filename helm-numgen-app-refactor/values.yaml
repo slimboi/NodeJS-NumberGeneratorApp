@@ -1,0 +1,48 @@
+# ===== values.yaml (default values file) =====
+# Default values for the chart - used for linting and as fallback
+app:
+  name: myapp
+  namespace: default
+  labels:
+    app: myapp
+
+image:
+  repository: nginx
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+deployment:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+
+container:
+  name: myapp
+  port: 80
+  env: []
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "50m"
+  limits:
+    memory: "128Mi"
+    cpu: "100m"
+
+probes:
+  readiness:
+    enabled: false
+  liveness:
+    enabled: false
+
+security:
+  imagePullSecrets: []
+
+persistence:
+  enabled: false

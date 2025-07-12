@@ -1,0 +1,73 @@
+# Global settings
+global:
+  namespace: numgen-app
+
+# MongoDB configuration
+mongodb:
+  replicas: 1
+  image:
+    repository: mongo
+    tag: "8.0.10"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  
+  persistence:
+    enabled: true
+    size: 1Gi
+    accessMode: ReadWriteOnce
+  
+  service:
+    port: 27017
+    targetPort: 27017
+
+# Mongo Express configuration
+mongoExpress:
+  replicas: 1
+  image:
+    repository: mongo-express
+    tag: "1-20-alpine3.19"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+  
+  service:
+    port: 8081
+    targetPort: 8081
+    type: NodePort
+
+# Numgen application configuration
+numgen:
+  replicas: 2
+  image:
+    repository: 475325513391.dkr.ecr.ap-southeast-2.amazonaws.com/nomcombo-app
+    tag: "b28d4ec"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+  
+  service:
+    port: 3000
+    targetPort: 3000
+    type: NodePort
+  
+  imagePullSecrets:
+    - name: ecr-secret

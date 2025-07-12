@@ -1,0 +1,231 @@
+# ===== templates/deployment.yaml =====
+# Main deployment template that handles all application types (NumGen, MongoDB, Mongo Express)
+# This single template is reused by passing different values files
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.app.name }}
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    # LOOP: Iterate through all labels defined in values file
+    # This allows flexible labeling for different applications
+    {{- range $key, $value := .Values.app.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  # CONDITIONAL: Only set replicas if auto-scaling is disabled
+  # When HPA is enabled, it manages replica count automatically
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.deployment.replicas }}
+  {{- end }}
+  strategy:
+    type: {{ .Values.deployment.strategy.type }}
+  selector:
+    matchLabels:
+      app: {{ .Values.app.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.app.name }}
+        # LOOP: Apply additional labels to pod template
+        # Same labels as deployment for consistency
+        {{- range $key, $value := .Values.app.labels }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+    spec:
+      containers:
+        - name: {{ .Values.container.name }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.container.port }}
+          
+          # CONDITIONAL: Only add environment variables section if env array exists
+          # This prevents empty env: sections in the final YAML
+          {{- if .Values.env }}
+          env:
+            # LOOP: Iterate through all environment variables
+            # CONDITIONAL: Only add env var if it exists and has a name (handles null values)
+            {{- range .Values.env }}
+            {{- if and . .name }}
+            - name: {{ .name }}
+              # CONDITIONAL: Handle different types of environment variable sources
+              # Direct value vs valueFrom (secrets/configmaps)
+              {{- if .value }}
+              value: {{ tpl .value $ | quote }}  # Added tpl function for template evaluation
+              {{- else if .valueFrom }}
+              valueFrom:
+                # CONDITIONAL: Support both secrets and configmaps as sources
+                {{- if .valueFrom.secretKeyRef }}
+                secretKeyRef:
+                  name: {{ .valueFrom.secretKeyRef.name }}
+                  key: {{ .valueFrom.secretKeyRef.key }}
+                {{- else if .valueFrom.configMapKeyRef }}
+                configMapKeyRef:
+                  name: {{ .valueFrom.configMapKeyRef.name }}
+                  key: {{ .valueFrom.configMapKeyRef.key }}
+                {{- end }}
+              {{- end }}
+            {{- end }}
+            {{- end }}
+          {{- end }}
+          
+          # CONDITIONAL: Only add volumeMounts if persistence is enabled OR additional volumes exist
+          # OR function: true if either condition is met
+          {{- if or .Values.persistence.enabled .Values.volumeMounts }}
+          volumeMounts:
+            # CONDITIONAL: Add persistent storage mount if enabled (for MongoDB)
+            {{- if .Values.persistence.enabled }}
+            - name: {{ .Values.app.name }}-storage
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
+            
+            # CONDITIONAL: Add additional volume mounts if defined
+            {{- if .Values.volumeMounts }}
+            # LOOP: Iterate through additional volume mounts (configmaps, secrets, etc.)
+            {{- range .Values.volumeMounts }}
+            # CONDITIONAL: Only add mount if it exists and has required fields
+            {{- if and . .name }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+              # CONDITIONAL: Add optional subPath if specified
+              {{- if .subPath }}
+              subPath: {{ .subPath }}
+              {{- end }}
+              # CONDITIONAL: Add readOnly flag if specified
+              {{- if .readOnly }}
+              readOnly: {{ .readOnly }}
+              {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+          {{- end }}
+          
+          # Resource limits and requests (always present)
+          resources:
+            requests:
+              memory: {{ .Values.resources.requests.memory }}
+              cpu: {{ .Values.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.resources.limits.memory }}
+              cpu: {{ .Values.resources.limits.cpu }}
+          
+          # CONDITIONAL: Add readiness probe only if enabled
+          # Readiness probes determine when pod is ready to receive traffic
+          {{- if .Values.probes.readiness.enabled }}
+          readinessProbe:
+            # CONDITIONAL: Support multiple probe types (HTTP, exec, TCP)
+            {{- if eq .Values.probes.readiness.type "httpGet" }}
+            httpGet:
+              path: {{ .Values.probes.readiness.httpGet.path }}
+              port: {{ .Values.probes.readiness.httpGet.port }}
+            {{- else if eq .Values.probes.readiness.type "exec" }}
+            exec:
+              command:
+                # FUNCTION: toYaml properly formats arrays as YAML
+                # nindent adds proper indentation
+                {{- toYaml .Values.probes.readiness.exec.command | nindent 16 }}
+            {{- else if eq .Values.probes.readiness.type "tcpSocket" }}
+            tcpSocket:
+              port: {{ .Values.probes.readiness.tcpSocket.port }}
+            {{- end }}
+            # Common probe settings
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- end }}
+          
+          # CONDITIONAL: Add liveness probe only if enabled
+          # Liveness probes determine when to restart the container
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            # CONDITIONAL: Support multiple probe types (same as readiness)
+            {{- if eq .Values.probes.liveness.type "httpGet" }}
+            httpGet:
+              path: {{ .Values.probes.liveness.httpGet.path }}
+              port: {{ .Values.probes.liveness.httpGet.port }}
+            {{- else if eq .Values.probes.liveness.type "exec" }}
+            exec:
+              command:
+                # FUNCTION: toYaml ensures proper YAML formatting for command arrays
+                {{- toYaml .Values.probes.liveness.exec.command | nindent 16 }}
+            {{- else if eq .Values.probes.liveness.type "tcpSocket" }}
+            tcpSocket:
+              port: {{ .Values.probes.liveness.tcpSocket.port }}
+            {{- end }}
+            # Common probe settings
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+      
+      # CONDITIONAL: Add image pull secrets only if defined
+      # Required for private registries like AWS ECR
+      {{- if .Values.security.imagePullSecrets }}
+      imagePullSecrets:
+        # LOOP: Support multiple image pull secrets
+        {{- range .Values.security.imagePullSecrets }}
+        # CONDITIONAL: Only add secret if it exists and has a name
+        {{- if and . .name }}
+        - name: {{ .name }}
+        {{- end }}
+        {{- end }}
+      {{- end }}
+      
+      # CONDITIONAL: Add volumes section only if persistence OR additional volumes exist
+      # OR function: true if either condition is met
+      {{- if or .Values.persistence.enabled .Values.volumes }}
+      volumes:
+        # CONDITIONAL: Add persistent volume claim if persistence is enabled
+        {{- if .Values.persistence.enabled }}
+        - name: {{ .Values.app.name }}-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.app.name }}-pvc
+        {{- end }}
+        
+        # CONDITIONAL: Add additional volumes if defined
+        {{- if .Values.volumes }}
+        # LOOP: Iterate through additional volumes (configmaps, secrets, etc.)
+        {{- range .Values.volumes }}
+        # CONDITIONAL: Only add volume if it exists and has a name
+        {{- if and . .name }}
+        - name: {{ .name }}
+          # CONDITIONAL: Support different volume types
+          {{- if .configMap }}
+          configMap:
+            name: {{ .configMap.name }}
+            # CONDITIONAL: Add specific items if defined
+            {{- if .configMap.items }}
+            items:
+              # LOOP: Add specific key-path mappings
+              {{- range .configMap.items }}
+              - key: {{ .key }}
+                path: {{ .path }}
+              {{- end }}
+            {{- end }}
+          {{- else if .secret }}
+          secret:
+            secretName: {{ .secret.secretName }}
+            # CONDITIONAL: Add specific items if defined
+            {{- if .secret.items }}
+            items:
+              # LOOP: Add specific key-path mappings for secrets
+              {{- range .secret.items }}
+              - key: {{ .key }}
+                path: {{ .path }}
+              {{- end }}
+            {{- end }}
+          {{- else if .emptyDir }}
+          emptyDir: {}
+          {{- else if .hostPath }}
+          hostPath:
+            path: {{ .hostPath.path }}
+            # FUNCTION: default provides fallback value if type not specified
+            type: {{ .hostPath.type | default "Directory" }}
+          {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+      {{- end }}

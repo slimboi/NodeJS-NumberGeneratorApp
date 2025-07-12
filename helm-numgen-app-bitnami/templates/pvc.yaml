@@ -1,0 +1,26 @@
+# ===== templates/pvc.yaml =====
+# Persistent Volume Claim template - only for stateful applications
+# CONDITIONAL: Entire PVC resource is optional (only for apps that need storage)
+{{- if .Values.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.app.name }}-pvc
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    # LOOP: Apply consistent labels
+    {{- range $key, $value := .Values.app.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  # CONDITIONAL: Only specify storage class if provided
+  # Empty string means use default storage class
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}

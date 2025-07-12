@@ -1,0 +1,40 @@
+# ===== Updated templates/service.yaml =====
+{{- if and .Values.numgen.enabled .Values.numgen.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.numgen.app.name }}
+  namespace: {{ .Values.numgen.app.namespace }}
+  labels:
+    {{- range $key, $value := .Values.numgen.app.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  selector:
+    app: {{ .Values.numgen.app.name }}
+  ports:
+    - port: {{ .Values.numgen.service.port }}
+      targetPort: {{ .Values.numgen.service.targetPort }}
+  type: {{ .Values.numgen.service.type }}
+{{- end }}
+
+---
+
+{{- if and .Values.mongoExpress.enabled .Values.mongoExpress.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.mongoExpress.app.name }}
+  namespace: {{ .Values.mongoExpress.app.namespace }}
+  labels:
+    {{- range $key, $value := .Values.mongoExpress.app.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  selector:
+    app: {{ .Values.mongoExpress.app.name }}
+  ports:
+    - port: {{ .Values.mongoExpress.service.port }}
+      targetPort: {{ .Values.mongoExpress.service.targetPort }}
+  type: {{ .Values.mongoExpress.service.type }}
+{{- end }}
