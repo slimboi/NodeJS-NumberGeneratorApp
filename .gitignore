@@ -5,3 +5,7 @@ node_*
 # package-lock.*
 
 .env
+
+charts
+
+Chart.*
