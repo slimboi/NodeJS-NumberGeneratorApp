@@ -23,7 +23,7 @@ numgen:
     pullPolicy: IfNotPresent
 
   deployment:
-    replicas: 3
+    replicas: 4
     strategy:
       type: RollingUpdate
 
