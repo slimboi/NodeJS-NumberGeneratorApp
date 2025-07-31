@@ -1,18 +1,32 @@
+# argocd-application.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: numgen-app
   namespace: argocd
+  labels:
+    app: numgen
 spec:
   project: default
   source:
-    repoURL : "https://github.com/slimboi/NodeJS-NumberGeneratorApp.git"
+    repoURL: "https://github.com/slimboi/NodeJS-NumberGeneratorApp.git"
     targetRevision: HEAD
     path: numgen-stack
+    helm:
+      valueFiles:
+        - values.yaml
   destination:
     server: "https://kubernetes.default.svc"
-    namespace: default
+    namespace: numgen-app  # Changed from 'default' to 'numgen-app'
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true  # Auto-create namespace
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
