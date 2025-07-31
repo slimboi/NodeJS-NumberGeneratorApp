@@ -1,10 +1,9 @@
-name: Node.js CI with Docker + ECR
-
+name: Node.js CI with Docker + ECR + Helm Update
 on:
   push:
     branches:
       - main
-      # - 'feature/**'
+      - 'feature/**'
     paths-ignore:
       # - 'README.md'
       - '*.md'
@@ -16,83 +15,64 @@ on:
     paths-ignore:
       - 'README.md'
       - '*.md'
-
+      - '.gitignore'
 # Required for OIDC authentication
 permissions:
   id-token: write
-  contents: read
-
+  contents: write  # Changed from 'read' to 'write' for git operations
 jobs:
   checkout:
     name: Checkout Code
     runs-on: ubuntu-latest
-
     outputs:
       short_sha: ${{ steps.set-sha.outputs.short_sha }}
-
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
-
       - name: Set Short SHA
         id: set-sha
         run: echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-
   lint:
     name: ESLint Check
     runs-on: ubuntu-latest
     needs: checkout
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
       - run: npm ci
         working-directory: app-docker-multistage
-
       - run: npm run lint
         working-directory: app-docker-multistage
-
   test:
     name: Run Tests
     runs-on: ubuntu-latest
     needs: lint
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
       - run: npm ci
         working-directory: app-docker-multistage
-
       - run: npm test
         working-directory: app-docker-multistage
-
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
     needs: test
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Configure AWS Credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           role-session-name: github-actions-docker-build
           aws-region: ${{ secrets.AWS_REGION }}
-
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-
       - name: Build and Push Docker Image
         working-directory: app-docker-multistage
         env:
@@ -104,3 +84,25 @@ jobs:
           docker build -t $IMAGE .
           docker push $IMAGE
           echo "Image pushed: $IMAGE"
+  update-helm:
+    name: Update Helm Chart
+    runs-on: ubuntu-latest
+    needs: [checkout, docker]
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Git Identity
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+      - name: Update Helm Chart with new image tag
+        env:
+          SHORT_SHA: ${{ needs.checkout.outputs.short_sha }}
+        run: |
+          sed -i "s/tag:.*/tag: ${{ env.SHORT_SHA }}/" ./numgen-stack/values.yaml
+          git add ./numgen-stack/values.yaml
+          git commit -m "Updated image tag to ${{ env.SHORT_SHA }} [skip ci]"
+          git push
