@@ -88,6 +88,9 @@ kubectl port-forward -n numgen-app --address 0.0.0.0 service/mongo-express 8081:
 
 ### Applying the CLI Manifest:
 ```bash
+
+cd ..
+
 # Apply the application manifest
 kubectl apply -f argocd-application.yaml
 
@@ -104,6 +107,8 @@ kubectl get applications -n argocd
 # Check application status
 kubectl describe application numgen-app -n argocd
 ```
+
+When deployed via cli Auto sync is enabled.
 
 ## 🔄 Testing GitOps Workflow
 
