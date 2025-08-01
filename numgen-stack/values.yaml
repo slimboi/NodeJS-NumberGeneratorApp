@@ -123,7 +123,7 @@ mongoExpress:
 
   env:
     - name: ME_CONFIG_MONGODB_SERVER
-      value: "numgen-stack-mongodb"
+      value: "{{ .Release.Name }}-mongodb"
     - name: ME_CONFIG_MONGODB_PORT
       value: "27017"
     - name: ME_CONFIG_MONGODB_ENABLE_ADMIN
@@ -133,7 +133,7 @@ mongoExpress:
     - name: ME_CONFIG_MONGODB_ADMINPASSWORD
       valueFrom:
         secretKeyRef:
-          name: "numgen-stack-mongodb"
+          name: "{{ .Release.Name }}-mongodb"
           key: mongodb-root-password
     - name: ME_CONFIG_MONGODB_AUTH_DATABASE
       value: "admin"
