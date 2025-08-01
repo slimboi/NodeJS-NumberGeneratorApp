@@ -52,8 +52,7 @@ This project showcases a production-ready GitOps workflow featuring:
 ```bash
 # Clone the repository
 git clone https://github.com/slimboi/NodeJS-NumberGeneratorApp.git
-cd NodeJS-NumberGeneratorApp/
-cd numgen-argocd
+cd NodeJS-NumberGeneratorApp/numgen-argocd/
 
 # Navigate to Terraform configurations
 cd terraform-configs/
