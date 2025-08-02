@@ -19,7 +19,7 @@ numgen:
 
   image:
     repository: 475325513391.dkr.ecr.ap-southeast-2.amazonaws.com/nomcombo-app
-    tag: "b303f80"
+    tag: "37495f6"
     pullPolicy: IfNotPresent
 
   deployment:
