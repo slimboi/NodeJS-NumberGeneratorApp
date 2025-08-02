@@ -1,9 +1,9 @@
-name: Node.js CI with Docker + ECR (ArgoCD Image Updater)
+name: Node.js CI with Docker + Docker Hub + Helm Update
 on:
   push:
     branches:
       - main
-      # - 'feature/**'
+      - 'feature/**'
     paths-ignore:
       # - 'README.md'
       - '*.md'
@@ -16,10 +16,9 @@ on:
       - 'README.md'
       - '*.md'
       - '.gitignore'
-# Required for OIDC authentication
 permissions:
-  id-token: write
-  contents: read  # Changed back to 'read' - no more git operations needed
+  contents: write  # For git operations in helm update
+
 jobs:
   checkout:
     name: Checkout Code
@@ -32,6 +31,7 @@ jobs:
       - name: Set Short SHA
         id: set-sha
         run: echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
   lint:
     name: ESLint Check
     runs-on: ubuntu-latest
@@ -45,6 +45,7 @@ jobs:
         working-directory: app-docker-multistage
       - run: npm run lint
         working-directory: app-docker-multistage
+
   test:
     name: Run Tests
     runs-on: ubuntu-latest
@@ -58,54 +59,52 @@ jobs:
         working-directory: app-docker-multistage
       - run: npm test
         working-directory: app-docker-multistage
+
   docker:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
     needs: test
     steps:
       - uses: actions/checkout@v4
-      - name: Configure AWS Credentials using OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          role-session-name: github-actions-docker-build
-          aws-region: ${{ secrets.AWS_REGION }}
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
       - name: Build and Push Docker Image
         working-directory: app-docker-multistage
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          REPOSITORY_NAME: ${{ secrets.REPOSITORY_NAME }}
         run: |
           SHORT_SHA=${GITHUB_SHA::7}
-          IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY:$SHORT_SHA
+          IMAGE=$DOCKERHUB_USERNAME/$REPOSITORY_NAME:$SHORT_SHA
           docker build -t $IMAGE .
           docker push $IMAGE
           echo "Image pushed: $IMAGE"
-          echo "🚀 ArgoCD Image Updater will automatically detect and deploy this image!"
 
-  # update-helm:
-  #   name: Update Helm Chart
-  #   runs-on: ubuntu-latest
-  #   needs: [checkout, docker]
-  #   steps:
-  #     - name: Checkout Repo
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #         token: ${{ secrets.GITHUB_TOKEN }}
-  #     - name: Set up Git Identity
-  #       run: |
-  #         git config --global user.name "GitHub Actions"
-  #         git config --global user.email "actions@github.com"
-  #     - name: Update Helm Chart with new image tag
-  #       env:
-  #         SHORT_SHA: ${{ needs.checkout.outputs.short_sha }}
-  #       run: |
-  #         # Only update the numgen image tag, not mongoExpress
-  #         sed -i '/numgen:/,/mongoExpress:/ { /tag:/ { s/tag:.*/tag: "${{ env.SHORT_SHA }}"/; } }' ./numgen-stack/values.yaml
-  #         git add ./numgen-stack/values.yaml
-  #         git commit -m "Updated numgen image tag to ${{ env.SHORT_SHA }} [skip ci]"
-  #         git push
+  update-helm:
+    name: Update Helm Chart
+    runs-on: ubuntu-latest
+    needs: [checkout, docker]
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Git Identity
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+      - name: Update Helm Chart with new image tag
+        env:
+          SHORT_SHA: ${{ needs.checkout.outputs.short_sha }}
+        run: |
+          # Only update the numgen image tag, not mongoExpress
+          sed -i '/numgen:/,/mongoExpress:/ { /tag:/ { s/tag:.*/tag: "${{ env.SHORT_SHA }}"/; } }' ./numgen-stack/values.yaml
+          git add ./numgen-stack/values.yaml
+          git commit -m "Updated numgen image tag to ${{ env.SHORT_SHA }} [skip ci]"
+          git push
