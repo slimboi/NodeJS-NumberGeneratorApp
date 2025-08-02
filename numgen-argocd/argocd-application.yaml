@@ -9,7 +9,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: "https://github.com/slimboi/NodeJS-NumberGeneratorApp.git"
+    repoURL: git@github.com:slimboi/NodeJS-NumberGeneratorApp.git
     targetRevision: feature/image-updater  # Changed from 'HEAD' to 'feature/image-updater'
     path: numgen-stack
     helm:
