@@ -4,6 +4,13 @@ kind: Application
 metadata:
   name: numgen-app
   namespace: argocd
+  annotations:
+    # Fixed annotations for Image Updater
+    argocd-image-updater.argoproj.io/image-list: slimboi/numcombo-app
+    argocd-image-updater.argoproj.io/numgen.update-strategy: newest-build
+    argocd-image-updater.argoproj.io/write-back-method: git
+    argocd-image-updater.argoproj.io/git-repository: https://github.com/slimboi/NodeJS-NumberGeneratorApp.git
+    argocd-image-updater.argoproj.io/git-branch: feature/image-updater
   labels:
     app: numgen
 spec:
