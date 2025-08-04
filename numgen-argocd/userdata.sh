@@ -52,6 +52,3 @@ apt-get install terraform -y
 
 # Clean up
 rm -rf awscliv2.zip aws kubectl minikube-linux-amd64
-
-# Reboot to apply all changes (optional)
-# reboot
