@@ -4,9 +4,11 @@ metadata:
   name: numgen-app
   namespace: argocd
   annotations:
-    # Fixed annotations for Image Updater
+    # Corrected annotations to match your values.yaml structure
     argocd-image-updater.argoproj.io/image-list: numgen=slimboi/numcombo-app
     argocd-image-updater.argoproj.io/numgen.update-strategy: latest
+    argocd-image-updater.argoproj.io/numgen.helm.image-name: numgen.image.repository
+    argocd-image-updater.argoproj.io/numgen.helm.image-tag: numgen.image.tag
     argocd-image-updater.argoproj.io/write-back-method: git
     argocd-image-updater.argoproj.io/git-repository: git@github.com:slimboi/NodeJS-NumberGeneratorApp.git
     argocd-image-updater.argoproj.io/git-branch: feature/image-updater
