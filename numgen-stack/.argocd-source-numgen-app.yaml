@@ -1,0 +1,8 @@
+helm:
+  parameters:
+  - name: image.name
+    value: slimboi/numcombo-app
+    forcestring: true
+  - name: image.tag
+    value: b7f8c0a
+    forcestring: true
