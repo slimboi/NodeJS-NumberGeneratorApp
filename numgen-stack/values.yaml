@@ -85,8 +85,11 @@ numgen:
       failureThreshold: 3
 
   security:
-    imagePullSecrets:
-      - name: ecr-secret
+    # Removed ECR secret - Docker Hub is public
+    imagePullSecrets: []
+    # Or you can comment out the entire section:
+    # imagePullSecrets:
+    #   - name: ecr-secret
 
   persistence:
     enabled: false

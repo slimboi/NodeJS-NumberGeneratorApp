@@ -1,4 +1,3 @@
-# argocd-application.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -6,10 +5,10 @@ metadata:
   namespace: argocd
   annotations:
     # Fixed annotations for Image Updater
-    argocd-image-updater.argoproj.io/image-list: slimboi/numcombo-app
-    argocd-image-updater.argoproj.io/numgen.update-strategy: newest-build
+    argocd-image-updater.argoproj.io/image-list: numgen=slimboi/numcombo-app
+    argocd-image-updater.argoproj.io/numgen.update-strategy: latest
     argocd-image-updater.argoproj.io/write-back-method: git
-    argocd-image-updater.argoproj.io/git-repository: https://github.com/slimboi/NodeJS-NumberGeneratorApp.git
+    argocd-image-updater.argoproj.io/git-repository: git@github.com:slimboi/NodeJS-NumberGeneratorApp.git
     argocd-image-updater.argoproj.io/git-branch: feature/image-updater
   labels:
     app: numgen
@@ -17,20 +16,20 @@ spec:
   project: default
   source:
     repoURL: git@github.com:slimboi/NodeJS-NumberGeneratorApp.git
-    targetRevision: feature/image-updater  # Changed from 'HEAD' to 'feature/image-updater'
+    targetRevision: feature/image-updater
     path: numgen-stack
     helm:
       valueFiles:
         - values.yaml
   destination:
     server: "https://kubernetes.default.svc"
-    namespace: numgen-app  # Changed from 'default' to 'numgen-app'
+    namespace: numgen-app
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true  # Auto-create namespace
+      - CreateNamespace=true
     retry:
       limit: 5
       backoff:
