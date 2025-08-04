@@ -4,5 +4,5 @@ helm:
     value: slimboi/numcombo-app
     forcestring: true
   - name: numgen.image.tag
-    value: 319094c
+    value: c452df9
     forcestring: true
