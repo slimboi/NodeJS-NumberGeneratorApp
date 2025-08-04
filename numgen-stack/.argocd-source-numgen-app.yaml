@@ -6,3 +6,9 @@ helm:
   - name: image.tag
     value: b7f8c0a
     forcestring: true
+  - name: numgen.image.repository
+    value: slimboi/numcombo-app
+    forcestring: true
+  - name: numgen.image.tag
+    value: 0e46dc7
+    forcestring: true
