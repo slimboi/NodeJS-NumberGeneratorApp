@@ -1,0 +1,8 @@
+helm:
+  parameters:
+  - name: numgen.image.repository
+    value: slimboi/numcombo-app
+    forcestring: true
+  - name: numgen.image.tag
+    value: 93b8faa
+    forcestring: true
