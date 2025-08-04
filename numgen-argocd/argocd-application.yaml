@@ -6,7 +6,7 @@ metadata:
   annotations:
     # Corrected annotations to match your values.yaml structure
     argocd-image-updater.argoproj.io/image-list: numgen=slimboi/numcombo-app
-    argocd-image-updater.argoproj.io/numgen.update-strategy: latest
+    argocd-image-updater.argoproj.io/numgen.update-strategy: newest-build
     argocd-image-updater.argoproj.io/numgen.helm.image-name: numgen.image.repository
     argocd-image-updater.argoproj.io/numgen.helm.image-tag: numgen.image.tag
     argocd-image-updater.argoproj.io/write-back-method: git
