@@ -4,5 +4,5 @@ helm:
     value: slimboi/numcombo-app
     forcestring: true
   - name: image.tag
-    value: 6aaa1fb
+    value: 806ad17
     forcestring: true
