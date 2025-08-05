@@ -1,0 +1,43 @@
+# values-staging.yaml - Staging Environment Overrides
+global:
+  namespace: numgen-staging
+  environment: staging
+
+numgen:
+  app:
+    namespace: numgen-staging
+  
+  deployment:
+    replicas: 2  # Reduced from 4
+  
+  env:
+    - name: NODE_ENV
+      value: "staging"  # Changed from production
+    - name: PORT
+      value: "3000"
+    - name: LOG_LEVEL
+      value: "info"  # Additional staging variable
+    - name: MONGO_URI
+      valueFrom:
+        secretKeyRef:
+          name: "{{ .Release.Name }}-mongodb-connection"
+          key: mongodb-uri
+  
+  autoscaling:
+    enabled: true  # Enable for staging testing
+    minReplicas: 2
+    maxReplicas: 4  # Reduced from 10
+
+mongoExpress:
+  app:
+    namespace: numgen-staging
+  enabled: true  # Keep for staging validation
+
+mongodb:
+  auth:
+    rootPassword: "StagingRootPassword123!"
+    password: "StagingUserPassword123!"
+    database: "nomcomboDB-staging"
+  
+  persistence:
+    size: 2Gi  # Increased from 1Gi

@@ -1,0 +1,97 @@
+# applicationset/numgen-applicationset.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: numgen-multi-env
+  namespace: argocd
+  labels:
+    app: numgen
+    component: applicationset
+spec:
+  generators:
+  - list:
+      elements:
+      # Development Environment
+      - environment: dev
+        namespace: numgen-dev
+        syncPolicy: automated
+        valuesFile: values-dev.yaml
+        replicaCount: "1"
+        resources: "minimal"
+        
+      # Staging Environment  
+      - environment: staging
+        namespace: numgen-staging
+        syncPolicy: manual
+        valuesFile: values-staging.yaml
+        replicaCount: "2"
+        resources: "moderate"
+        
+      # Production Environment
+      - environment: prod
+        namespace: numgen-prod
+        syncPolicy: manual
+        valuesFile: values-prod.yaml
+        replicaCount: "4"
+        resources: "high"
+
+  template:
+    metadata:
+      name: 'numgen-{{environment}}'
+      labels:
+        app: numgen
+        environment: '{{environment}}'
+    spec:
+      project: default
+      
+      source:
+        repoURL: https://github.com/slimboi/NodeJS-NumberGeneratorApp.git
+        targetRevision: feature/appSet
+        path: numgen-stack
+        helm:
+          valueFiles:
+          - values.yaml  # Base values
+          - '{{valuesFile}}'  # Environment-specific overrides
+          parameters:
+          - name: "global.environment"
+            value: '{{environment}}'
+          - name: "global.namespace"
+            value: '{{namespace}}'
+      
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      
+      # Environment-specific sync policies
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true
+        - PrunePropagationPolicy=foreground
+        - PruneLast=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+      
+      # Override sync policy for staging and prod (manual)
+      {{- if ne .environment "dev"}}
+      syncPolicy:
+        syncOptions:
+        - CreateNamespace=true
+        - PrunePropagationPolicy=foreground
+        - PruneLast=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s  
+            factor: 2
+            maxDuration: 3m
+      {{- end}}
+
+  # Preserve resource versions to prevent unnecessary syncs
+  preserveResourcesOnDeletion: false

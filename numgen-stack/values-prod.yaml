@@ -1,0 +1,59 @@
+# values-prod.yaml - Production Environment Overrides
+global:
+  namespace: numgen-prod
+  environment: production
+
+numgen:
+  app:
+    namespace: numgen-prod
+  
+  # Keep replicas: 4 (same as base, so no override needed)
+  
+  env:
+    - name: NODE_ENV
+      value: "production"  # Same as base, but explicit
+    - name: PORT
+      value: "3000"
+    - name: LOG_LEVEL
+      value: "warn"  # Production logging
+    - name: MONGO_URI
+      valueFrom:
+        secretKeyRef:
+          name: "{{ .Release.Name }}-mongodb-connection"
+          key: mongodb-uri
+  
+  resources:
+    requests:
+      memory: "256Mi"  # Increased from 128Mi
+      cpu: "200m"      # Increased from 100m
+    limits:
+      memory: "512Mi"  # Increased from 256Mi
+      cpu: "500m"      # Increased from 200m
+  
+  autoscaling:
+    enabled: true  # Enable for production
+    minReplicas: 4
+    maxReplicas: 20  # Increased from 10
+    targetCPUUtilizationPercentage: 70  # Reduced from 80
+
+mongoExpress:
+  app:
+    namespace: numgen-prod
+  enabled: false  # DISABLED for production security
+
+mongodb:
+  auth:
+    rootPassword: "ProductionSecureRootPassword123!"
+    password: "ProductionSecureUserPassword123!"
+    database: "nomcomboDB-prod"
+  
+  persistence:
+    size: 10Gi  # Much larger for production
+  
+  resources:
+    requests:
+      memory: "512Mi"  # Increased from 256Mi
+      cpu: "500m"      # Increased from 250m
+    limits:
+      memory: "1Gi"    # Increased from 512Mi
+      cpu: "1000m"     # Increased from 500m
