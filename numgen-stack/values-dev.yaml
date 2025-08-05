@@ -47,8 +47,8 @@ mongodb:
   
   resources:
     requests:
-      memory: "128Mi"  # Reduced from 256Mi
-      cpu: "100m"      # Reduced from 250m
+      memory: "256Mi"  # Increased - MongoDB needs more memory
+      cpu: "100m"
     limits:
-      memory: "256Mi"  # Reduced from 512Mi
-      cpu: "200m"      # Reduced from 500m
+      memory: "512Mi"  # Increased - MongoDB 8.x needs at least 512Mi
+      cpu: "200m"
