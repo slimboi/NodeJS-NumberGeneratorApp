@@ -14,16 +14,19 @@ spec:
       - environment: dev
         namespace: numgen-dev
         valuesFile: values-dev.yaml
+        syncPolicy: automated
         
       # Staging Environment  
       - environment: staging
         namespace: numgen-staging
         valuesFile: values-staging.yaml
+        syncPolicy: manual
         
       # Production Environment
       - environment: prod
         namespace: numgen-prod
         valuesFile: values-prod.yaml
+        syncPolicy: manual
 
   template:
     metadata:
