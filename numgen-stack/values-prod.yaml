@@ -48,12 +48,12 @@ mongodb:
     database: "nomcomboDB-prod"
   
   persistence:
-    size: 10Gi  # Much larger for production
+    size: 2Gi  # Much larger for production
   
   resources:
     requests:
-      memory: "512Mi"  # Increased from 256Mi
-      cpu: "500m"      # Increased from 250m
+      memory: "256Mi"  # Increased from 256Mi
+      cpu: "250m"      # Increased from 250m
     limits:
-      memory: "1Gi"    # Increased from 512Mi
-      cpu: "1000m"     # Increased from 500m
+      memory: "512Mi"    # Increased from 512Mi
+      cpu: "500m"     # Increased from 500m
