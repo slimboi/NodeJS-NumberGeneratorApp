@@ -8,7 +8,7 @@ numgen:
     namespace: numgen-dev
   
   deployment:
-    replicas: 1  # Reduced from 4 for dev
+    replicas: 2  # Reduced from 4 for dev
   
   env:
     - name: NODE_ENV
